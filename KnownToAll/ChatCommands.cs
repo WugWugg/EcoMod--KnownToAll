@@ -1,4 +1,5 @@
-﻿using Eco.Gameplay.Civics.Demographics;
+﻿using Eco.Core;
+using Eco.Gameplay.Civics.Demographics;
 using Eco.Gameplay.GameActions;
 using Eco.Gameplay.Items;
 using Eco.Gameplay.Players;
@@ -24,20 +25,20 @@ namespace KnownToAll
     [SupportedOSPlatform("windows7.0")]
     public static class KnownToAllCommands
     {
-        [ChatSubCommand("knowntoall", "Debug Testing", ChatAuthorizationLevel.User)]
-        public static void wugtest(User user)
-        {
-            var skill = Skill.AllSkills.First();
-            var msg = $"{user.MarkedUpName} completed their research! {DemographicManager.Everyone.MarkedUpName} has learned the specialty {skill.MarkedUpName}.";
-            Logger.Info(msg);
-            NotificationManager.ServerMessageToAll(Localizer.DoStr(msg));
+        //[ChatSubCommand("knowntoall", "Debug Testing", ChatAuthorizationLevel.User)]
+        //public static void wugtest(User user)
+        //{
+        //    var skill = Skill.AllSkills.First();
+        //    var msg = $"{user.MarkedUpName} completed their research! {DemographicManager.Everyone.MarkedUpName} has learned the specialty {skill.MarkedUpName}.";
+        //    Logger.Info(msg);
+        //    NotificationManager.ServerMessageToAll(Localizer.DoStr(msg));
             
-            user.MsgOrMailLoc(
-                $"{msg}",
-                NotificationCategory.Notifications,
-                NotificationStyle.Mail
-            );
-        }
+        //    user.MsgOrMailLoc(
+        //        $"{msg}",
+        //        NotificationCategory.Notifications,
+        //        NotificationStyle.Mail
+        //    );
+        //}
 
         [ChatCommand("")]
         public static void knowntoall() { }
@@ -46,6 +47,16 @@ namespace KnownToAll
         public static void version(IChatClient chat)
         {
             chat.MsgLoc($"Version: {KnownToAll.VERSION}");
+        }
+
+        [ChatSubCommand("knowntoall", "Teaches every player every discovered skill.", "teach-all", ChatAuthorizationLevel.Admin)]
+        public static void teachAll(User chat)
+        {
+            foreach (var user in UserManager.Users)
+            {
+                int num = PluginManager.GetPlugin<KnownToAll>().TryTeachDiscoveredSkills(user);
+                if (num > 0) { chat.MsgLoc($"Taught {user.MarkedUpName} {num} skills"); }
+            }
         }
 
         [ChatSubCommand("knowntoall", "Pretty prints a users skill levels.", "listSkills", ChatAuthorizationLevel.Admin)]
@@ -63,7 +74,9 @@ namespace KnownToAll
             {
                 content.AppendLineLocStr($"<align=left>{skill.Level}\t{skill.MarkedUpName}</align>");
             }
-            var missingSkills = Skill.AllSkills.ExceptBy(userSkills.Select(x => x.Type), x => x.Type);
+            var missingSkills = Skill.AllSkills
+                .ExceptBy(userSkills.Select(x => x.Type), x => x.Type)
+                .OrderBy(x => x.Name, StringComparer.OrdinalIgnoreCase);
             if (missingSkills.Any()) content.AppendLineLocStr("<br><align=left>Unknown Skills:</align>");
             foreach (var skill in missingSkills)
             {

@@ -37,7 +37,7 @@ namespace KnownToAll
     [Priority(PriorityAttribute.VeryLow)] // Making this one of the last mods to load. If NoMoreBooks is enabled we want to load after it to warn about book-less recipes.
     public class KnownToAll : IModKitPlugin, IGameActionAware, IInitializablePlugin, IShutdownablePlugin
     {
-        public const string VERSION = "v0.1";
+        public const string VERSION = "v0.1.1";
 
         public string GetCategory() => "Mods";
         public string GetStatus() => Localizer.DoStr($"Status: {_status}. Version: {VERSION}");
@@ -52,7 +52,8 @@ namespace KnownToAll
             }
             if (action is FirstLogin firstLogin)
             {
-                HandleFirstLogin(firstLogin.Citizen);
+                int num = TryTeachDiscoveredSkills(firstLogin.Citizen);
+                if (num > 0) { Logger.Info($"Taught {firstLogin.Citizen} {num} skills"); }
             }
         }
 
@@ -83,12 +84,18 @@ namespace KnownToAll
             return Task.CompletedTask;
         }
 
-        private void HandleFirstLogin(User user)
+        public int TryTeachDiscoveredSkills(User user)
         {
             var discoveredSkills = Skill.AllSkills.Where(x => x.IsDiscovered());
+            var numTaught = 0;
             foreach (var skill in discoveredSkills) {
-                user.Skillset.LearnSkill(skill.Type);
+                if (!user.Skillset.HasSkill(skill.Type))
+                {
+                    user.Skillset.LearnSkill(skill.Type);
+                    numTaught++;
+                }
             }
+            return numTaught;
         }
 
         private void HandleItemCrafted(User crafter, SkillBook book)
@@ -96,7 +103,7 @@ namespace KnownToAll
             if (!book.Skill.IsDiscovered())
             {
                 AnnounceDiscovery(book.Skill, crafter);
-                EmulateSkillScroll(crafter, book);
+                EmulateSkillScroll(crafter, book, notify: false);
                 foreach (var user in UserManager.Users)
                 {
                     if (user == crafter) continue;
